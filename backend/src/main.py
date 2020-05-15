@@ -5,17 +5,26 @@ from sqlalchemy import exc
 from flask_cors import CORS
 from .agency_models.models import setup_db, Actor, Movie
 from .auth.auth import requires_auth, AuthError
+from .auth.get_token import get_auth_token
+
 
 def create_app(test_config=None):
-# create and configure the app
+    # create and configure the app
     app = Flask(__name__)
     setup_db(app)
-    cors = CORS(app, resources={r"/api/*": {"origins": "*"}})    
-    #CORS Headers
-    @app.after_request    
+    cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
+    # CORS Headers
+
+    @app.after_request
     def after_request(response):
-        response.headers.add('Access-Control-Allow-Headers','Content-Type,Authorization,true')
-        response.headers.add('Access-Control-Allow-Methods','GET,POST,DELETE,OPTIONS')
+        response.headers.add(
+            'Access-Control-Allow-Headers',
+            'Content-Type,Authorization,true'
+        )
+        response.headers.add(
+            'Access-Control-Allow-Methods',
+            'GET,POST,DELETE,OPTIONS'
+        )
         return response
 
     # MOVIE ROUTES
@@ -24,10 +33,10 @@ def create_app(test_config=None):
     def get_movies(jwt):
         movies = Movie.query.all()
         formated_movies = [movie.format() for movie in movies]
-        
+
         return jsonify({
             'success': True,
-            'movies': formated_movies    
+            'movies': formated_movies
         })
 
     @app.route('/movies', methods=['POST'])
@@ -36,57 +45,53 @@ def create_app(test_config=None):
         data = request.get_json()
         try:
             movie = Movie(
-                title = data.get('title'),
-                release = data.get('release')
+                title=data.get('title'),
+                release=data.get('release')
             )
-            
+
             movie.insert()
-            new_movie = (
-                Movie.query
-                .filter_by(title = data.get('title'))
-                .one_or_none()
-            )
+
             return({
                 "success": True,
-                "movie": [new_movie.format()]
+                "movie": [movie.format()]
             })
-        except:
+        except Exception:
             abort(422)
 
     @app.route('/movies/<int:movie_id>', methods=['PATCH'])
     @requires_auth('patch:movie')
     def modify_movie(jwt, movie_id):
         data = request.get_json()
-        movie= (
+        movie = (
             Movie.query
-            .filter_by(id = movie_id)
+            .filter_by(id=movie_id)
             .one_or_none()
         )
         try:
             movie.title = data.get('title')
             movie.release = data.get('release')
-            
+
             movie.update()
 
             return({
                 'success': True,
                 'movie': [movie.format()]
             })
-        except:
+        except Exception:
             abort(422)
-            
+
     @app.route('/movies/<int:movie_id>', methods=['DELETE'])
     @requires_auth('delete:movie')
     def delete_movie(jwt, movie_id):
         try:
-            movie = Movie.query.filter_by(id = movie_id).one_or_none()
+            movie = Movie.query.filter_by(id=movie_id).one_or_none()
             movie.delete()
 
             return({
                 'success': True,
                 'movie': movie_id
             })
-        except:
+        except Exception:
             abort(422)
 
     # Actor Routes
@@ -96,7 +101,7 @@ def create_app(test_config=None):
     def get_actor(jwt):
         actors = Actor.query.all()
         formated_actors = [actor.format() for actor in actors]
-        
+
         return jsonify({
             'success': True,
             'actors': formated_actors
@@ -108,21 +113,17 @@ def create_app(test_config=None):
         data = request.get_json()
         try:
             actor = Actor(
-                name = data.get('name'),
-                age = data.get('age'),
-                gender = data.get('gender') 
+                name=data.get('name'),
+                age=data.get('age'),
+                gender=data.get('gender')
             )
             actor.insert()
-            new_actor = (
-                Actor.query
-                .filter_by(name = data.get('name'))
-                .one_or_none()
-            )
+            
             return jsonify({
                 'success': True,
-                'actor': [new_actor.format()]
+                'actor': [actor.format()]
             })
-        except:
+        except Exception:
             abort(422)
 
     @app.route('/actors/<int:actor_id>', methods=['PATCH'])
@@ -131,7 +132,7 @@ def create_app(test_config=None):
         data = request.get_json()
         actor = (
             Actor.query
-            .filter_by(id = actor_id)
+            .filter_by(id=actor_id)
             .one_or_none()
         )
         try:
@@ -144,7 +145,7 @@ def create_app(test_config=None):
                 'success': True,
                 'actor': [actor.format()]
             })
-        except:
+        except Exception:
             abort(422)
 
     @app.route('/actors/<int:actor_id>', methods=['DELETE'])
@@ -153,39 +154,33 @@ def create_app(test_config=None):
         try:
             actor = (
                 Actor.query
-                .filter_by(id = actor_id)
+                .filter_by(id=actor_id)
                 .one_or_none()
             )
             actor.delete()
-        
+
             return({
                 'success': True,
                 'actor': actor_id
             })
-        except:
+        except Exception:
             abort(422)
-        
-    #Error Handlers
 
-    @app.errorhandler(422)
-    def unprocessable(error):
+# FOR TESTING PURPOSES ADDED SO MENTOR COULD GENERATE TOKEN
+
+    @app.route('/token', methods=['POST'])
+    def get_token():
+        data = request.get_json()
+        client_type = data.get('client')
+        full_jwt = get_auth_token(client_type)
+
         return jsonify({
-                        "success": False,
-                        "error": 422,
-                        "message": "unprocessable"
-                        }), 422
+            'success': True,
+            'jwt': full_jwt['access_token'],
+            'scope': full_jwt['scope']
+        })
+    # Error Handlers
 
-
-    '''
-    @DONE implement error handlers using the @app.errorhandler(error) decorator
-        each error handler should return (with appropriate messages):
-        jsonify({
-            "success": False,
-            "error": 404,
-            "message": "resource not found"
-            }), 404
-
-    '''
     @app.errorhandler(400)
     def bad_request(error):
         return jsonify({
@@ -193,7 +188,6 @@ def create_app(test_config=None):
                         "error": 400,
                         "message": "Bad Request"
                         }), 400
-
 
     @app.errorhandler(403)
     def forbidden(error):
@@ -203,6 +197,21 @@ def create_app(test_config=None):
                         "message": "Forbidden"
                         }), 403
 
+    @app.errorhandler(404)
+    def resource_not_found(error):
+        return jsonify({
+                        "success": False,
+                        "error": 404,
+                        "message": "resource not found"
+                        }), 404
+
+    @app.errorhandler(422)
+    def unprocessable(error):
+        return jsonify({
+                        "success": False,
+                        "error": 422,
+                        "message": "unprocessable"
+                        }), 422
 
     @app.errorhandler(500)
     def internal_error(error):
@@ -211,7 +220,6 @@ def create_app(test_config=None):
             "error": 500,
             "message": "Internal Error"
         }), 500
-
 
     @app.errorhandler(AuthError)
     def auth_error(ex):
@@ -222,4 +230,3 @@ def create_app(test_config=None):
                         }),  ex.status_code
 
     return app
-

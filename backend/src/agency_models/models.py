@@ -23,7 +23,7 @@ class Movie(db.Model):
     
     id = Column(db.Integer, primary_key=True)
     title = Column(db.String)
-    release = Column(db.String)
+    release = Column(db.DateTime())
     
     def __init__(self, title, release):
         self.title = title
@@ -31,6 +31,7 @@ class Movie(db.Model):
 
     def insert(self):
         db.session.add(self)
+        db.session.flush()
         db.session.commit()
     
     def update(self):
@@ -51,10 +52,10 @@ Actors
 '''
 class Actor(db.Model):
     __tablename__ = 'actors'
-    id = Column(db.Integer(), primary_key=True)
-    name = Column(db.String())
-    age = Column(db.Integer())
-    gender = Column(db.String())
+    id = Column(db.Integer, primary_key=True)
+    name = Column(db.String)
+    age = Column(db.Integer)
+    gender = Column(db.String)
     
     def __init__(self, name, age, gender):
         self.name = name
@@ -63,6 +64,7 @@ class Actor(db.Model):
 
     def insert(self):
         db.session.add(self)
+        db.session.flush()
         db.session.commit()
         
     def update(self):
